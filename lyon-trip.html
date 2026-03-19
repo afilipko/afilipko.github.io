@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Лион 2–6 апреля</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;font-family:'Georgia',serif;color:#2c2c2c;background:#f7f4ef;}
+
+    /* ── LAYOUT ── */
+    #app{display:flex;height:100vh;overflow:hidden;}
+    #sidebar{width:370px;min-width:300px;display:flex;flex-direction:column;background:#fff;border-right:1px solid #e0d9d0;overflow:hidden;}
+    #map-wrap{flex:1;position:relative;}
+    #map{width:100%;height:100%;}
+
+    /* ── HEADER ── */
+    #hdr{background:#2c2c2c;color:#fff;padding:16px 20px 12px;flex-shrink:0;}
+    #hdr h1{font-size:19px;font-weight:normal;letter-spacing:1px;}
+    #hdr p{font-size:11px;color:#aaa;margin-top:3px;}
+
+    /* ── HOTEL STRIP ── */
+    .hotel-strip{display:flex;align-items:center;gap:10px;padding:10px 20px;background:#fdf8f0;border-bottom:1px solid #ece8e2;cursor:pointer;flex-shrink:0;}
+    .hotel-strip:hover{background:#faf3e8;}
+    .hotel-icon{width:28px;height:28px;border-radius:7px;background:#c8a96e;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+    .hotel-name{font-size:12px;font-weight:bold;}
+    .hotel-sub{font-size:10px;color:#888;margin-top:1px;}
+
+    /* ── SCROLL AREA ── */
+    #scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+    /* ── DAY BLOCKS ── */
+    .day-block{border-bottom:1px solid #ece8e2;}
+    .day-hdr{display:flex;align-items:center;gap:11px;padding:13px 20px 9px;cursor:pointer;user-select:none;}
+    .day-hdr:hover{background:#faf8f5;}
+    .day-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;}
+    .day-name{font-size:13px;font-weight:bold;}
+    .day-sub{font-size:10px;color:#888;margin-top:1px;}
+    .day-chev{margin-left:auto;font-size:11px;color:#bbb;transition:transform .2s;}
+    .day-chev.open{transform:rotate(90deg);}
+    .day-body{display:none;padding:0 20px 12px 43px;}
+    .day-body.open{display:block;}
+
+    /* ── STOP ── */
+    .stop{display:flex;gap:9px;margin-bottom:11px;cursor:pointer;}
+    .stop:active .stop-name{opacity:.7;}
+    .stop-badge{width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:bold;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+    .stop-name{font-size:12px;font-weight:bold;line-height:1.3;}
+    .stop-desc{font-size:11px;color:#666;margin-top:2px;line-height:1.45;}
+    .stop-time{font-size:10px;color:#aaa;margin-top:2px;}
+    .tag{display:inline-block;font-size:9px;font-weight:bold;letter-spacing:.4px;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;}
+    .tag-b{background:#e8f5e9;color:#2e7d32;}
+    .tag-w{background:#f3e5f5;color:#6a1b9a;}
+    .tag-s{background:#fff8e1;color:#e65100;}
+
+    /* ── MAPS BTN ── */
+    .maps-btn{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:#1a73e8;text-decoration:none;font-family:sans-serif;}
+    .maps-btn:hover{text-decoration:underline;}
+
+    /* ── LEGEND ── */
+    #legend{padding:12px 20px;background:#faf8f5;border-top:1px solid #ece8e2;flex-shrink:0;}
+    .leg-title{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+    .leg-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:10px;color:#555;}
+    .leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .leg-note{font-size:9px;color:#bbb;margin-top:6px;}
+
+    /* ── MOBILE TABS ── */
+    #tab-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e0d9d0;z-index:1000;height:52px;}
+    .tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;color:#888;cursor:pointer;border:none;background:none;font-family:sans-serif;padding:0;}
+    .tab-btn.active{color:#2c2c2c;}
+    .tab-btn span:first-child{font-size:18px;}
+    #mobile-sidebar{display:none;position:fixed;top:0;left:0;right:0;bottom:52px;background:#fff;z-index:999;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:700px){
+      #app{display:block;height:auto;}
+      #sidebar{display:none;}
+      #map-wrap{position:fixed;top:0;left:0;right:0;bottom:52px;}
+      #map{height:100%;}
+      #tab-bar{display:flex;}
+    }
+
+    /* ── POPUP ── */
+    .leaflet-popup-content-wrapper{border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.16);}
+    .leaflet-popup-content{margin:10px 13px;}
+    .pop-day{font-size:9px;font-weight:bold;letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px;}
+    .pop-name{font-size:13px;font-weight:bold;color:#2c2c2c;margin-bottom:3px;line-height:1.3;}
+    .pop-desc{font-size:11px;color:#555;line-height:1.4;}
+    .pop-time{font-size:10px;color:#888;margin-top:4px;}
+    .pop-maps{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11px;color:#1a73e8;text-decoration:none;font-family:sans-serif;font-weight:bold;}
+    .pop-maps:hover{text-decoration:underline;}
+    .pop-badge{display:inline-block;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div id="hdr">
+      <h1>Лион</h1>
+      <p>2–6 апреля &nbsp;·&nbsp; 5 дней &nbsp;·&nbsp; вдвоём</p>
+    </div>
+    <div class="hotel-strip" onclick="flyToHotel()">
+      <div class="hotel-icon">🏨</div>
+      <div>
+        <div class="hotel-name">OKKO Hotels Lyon Centre</div>
+        <div class="hotel-sub">Нажмите, чтобы показать на карте</div>
+      </div>
+    </div>
+    <div id="scroll">
+      <div id="days-wrap"></div>
+    </div>
+    <div id="legend">
+      <div class="leg-title">По дням</div>
+      <div id="leg-rows"></div>
+      <div class="leg-note">📍 Координаты приблизительные — уточняйте перед походом</div>
+    </div>
+  </div>
+
+  <div id="map-wrap"><div id="map"></div></div>
+</div>
+
+<!-- Mobile -->
+<div id="tab-bar">
+  <button class="tab-btn active" id="tab-map" onclick="showTab('map')"><span>🗺️</span><span>Карта</span></button>
+  <button class="tab-btn" id="tab-list" onclick="showTab('list')"><span>📋</span><span>Маршрут</span></button>
+</div>
+<div id="mobile-sidebar">
+  <div id="hdr" style="background:#2c2c2c;color:#fff;padding:16px 20px 12px;">
+    <h1 style="font-size:19px;font-weight:normal;letter-spacing:1px;">Лион</h1>
+    <p style="font-size:11px;color:#aaa;margin-top:3px;">2–6 апреля · 5 дней · вдвоём</p>
+  </div>
+  <div class="hotel-strip" onclick="flyToHotelMobile()">
+    <div class="hotel-icon">🏨</div>
+    <div>
+      <div class="hotel-name">OKKO Hotels Lyon Centre</div>
+      <div class="hotel-sub">Нажмите, чтобы показать на карте</div>
+    </div>
+  </div>
+  <div id="mobile-days-wrap"></div>
+</div>
+
+<script>
+const HOTEL={name:"OKKO Hotels Lyon Centre",lat:45.7590,lng:4.8345,note:"Presqu'île — удобное расположение для всей программы"};
+
+const DAYS=[
+  {key:"thu",color:"#E07B39",date:"Чт, 2 апреля",title:"Прибытие — Presqu'île",stops:[
+    {name:"Заселение + обед",desc:"Располагайтесь, обед в ближайшем лионском бистро.",time:"11:00–13:00",lat:45.7590,lng:4.8345,gmaps:"https://maps.google.com/maps?q=OKKO+Hotels+Lyon+Centre"},
+    {name:"Les Halles Paul Bocuse",desc:"Лучшее знакомство с лионской едой: сыры, колбасы, десерты. Купить угощений, попробовать прямо там.",time:"14:00–16:00",lat:45.7627,lng:4.8359,gmaps:"https://maps.google.com/maps?q=45.7627,4.8359"},
+    {name:"Bouquinistes — набережная Соны",desc:"Букинисты вдоль quai de la Pêcherie и quai Saint-Antoine — книги, старые афиши, открытки, гравюры. Приятно пролистать не торопясь.",time:"16:00–17:30",lat:45.7638,lng:4.8285,gmaps:"https://maps.google.com/maps?q=45.7638,4.8285",tag:"s"},
+    {name:"Прогулка: Place des Terreaux",desc:"Фонтан Бартольди, Hôtel de Ville, набережные.",time:"17:30–19:00",lat:45.7674,lng:4.8339,gmaps:"https://maps.google.com/maps?q=45.7674,4.8339"},
+    {name:"Ужин: JaJa Bistro",desc:"Отличный винный бистро с натуральными винами и точной сезонной едой. Хорошо для первого вечера.",time:"19:30",lat:45.7655,lng:4.8328,tag:"w",gmaps:"https://maps.google.com/maps?q=JaJa+Bistro+Lyon"}
+  ]},
+  {key:"fri",color:"#3A7DC9",date:"Пт, 3 апреля",title:"Вьё-Лион + Фурвьер",stops:[
+    {name:"Vieux-Lyon: трабули и дворы",desc:"Ренессансные дворы, тайные трабули, Place Saint-Jean. Самый живописный утренний маршрут.",time:"9:00–10:30",lat:45.7602,lng:4.8270,gmaps:"https://maps.google.com/maps?q=45.7602,4.8270"},
+    {name:"🛍️ Brochier Soieries",desc:"Легендарный лионский шёлк — ткани, аксессуары, небольшие сувениры. Одна из старейших шёлковых мануфактур. Rue du Bœuf.",time:"10:30–11:15",lat:45.7594,lng:4.8271,tag:"s",gmaps:"https://maps.google.com/maps?q=Brochier+Soieries+Lyon"},
+    {name:"🛍️ Boul'dingue",desc:"Маленький книжный-дискарь: старые афиши кино, комиксы, виниловые пластинки — настоящая нора для находок.",time:"11:15–12:00",lat:45.7593,lng:4.8266,tag:"s",gmaps:"https://maps.google.com/maps?q=Bouldingue+Lyon"},
+    {name:"Фуникулёр + Базилика Фурвьер",desc:"Подъём на холм. Базилика, панорама на весь Лион. В апреле с зеленью — особенно красиво.",time:"12:00–13:30",lat:45.7622,lng:4.8224,gmaps:"https://maps.google.com/maps?q=45.7622,4.8224"},
+    {name:"Римский амфитеатр",desc:"I век н.э. — один из лучших в Европе. Вход свободный, туристов мало.",time:"13:30–14:30",lat:45.7614,lng:4.8218,gmaps:"https://maps.google.com/maps?q=45.7614,4.8218"},
+    {name:"Обед и спуск пешком",desc:"Обед в Vieux-Lyon. Спуск по лестницам — другие виды, другие трабули.",time:"14:30–17:00",lat:45.7590,lng:4.8250,gmaps:"https://maps.google.com/maps?q=45.7590,4.8250"},
+    {name:"Ужин: Rustique ✓",desc:"Забронировано. Биостро на сезонных продуктах, хорошая карта натуральных вин.",time:"20:00",lat:45.7679,lng:4.8340,tag:"b",gmaps:"https://maps.google.com/maps?q=Rustique+Restaurant+Lyon"}
+  ]},
+  {key:"sat",color:"#3DAA6A",date:"Сб, 4 апреля",title:"Круа-Рус + Confluences",stops:[
+    {name:"Рынок Круа-Рус + машон",desc:"Живой местный рынок. Завтрак-машон: бокал Божоле + лионская колбаса — местная традиция. К 9–9:30.",time:"9:00–11:00",lat:45.7741,lng:4.8294,gmaps:"https://maps.google.com/maps?q=45.7741,4.8294"},
+    {name:"🛍️ Village des Créateurs",desc:"Пассаж Thiaffait — пепинёр молодых дизайнеров: одежда, украшения, керамика, аксессуары. Несколько мастерских рядом.",time:"11:00–12:00",lat:45.7703,lng:4.8316,tag:"s",gmaps:"https://maps.google.com/maps?q=Village+des+Createurs+Passage+Thiaffait+Lyon"},
+    {name:"🛍️ Blitz",desc:"Смешанный концепт-стор: книги, декор, объекты, керамика, иногда выставки на втором этаже. Хороший выбор необычных вещей.",time:"12:00–12:45",lat:45.7710,lng:4.8322,tag:"s",gmaps:"https://maps.google.com/maps?q=Blitz+Lyon"},
+    {name:"Обед: JaJa Bistro",desc:"Натуральные вина, сезонная еда. Идеально после утреннего шопинга.",time:"13:00–14:30",lat:45.7655,lng:4.8328,tag:"w",gmaps:"https://maps.google.com/maps?q=JaJa+Bistro+Lyon"},
+    {name:"Musée des Confluences",desc:"Здание Захи Хадид у слияния Роны и Соны. Антропология, естественная история, вселенная. 2–3 часа.",time:"15:00–18:00",lat:45.7336,lng:4.8178,gmaps:"https://maps.google.com/maps?q=45.7336,4.8178"},
+    {name:"Ужин: Murmures ✓",desc:"Забронировано. Деликатная, точная кухня — один из лучших ресторанов Лиона.",time:"19:30",lat:45.7618,lng:4.8290,tag:"b",gmaps:"https://maps.google.com/maps?q=Murmures+Restaurant+Lyon"}
+  ]},
+  {key:"sun",color:"#8B5CF6",date:"Вс, 5 апреля",title:"Божоле: Fleurie + Oingt",stops:[
+    {name:"Поезд Lyon → Romanèche-Thorins",desc:"Lyon Part-Dieu → Romanèche-Thorins, ~50 мин. Такси до Fleurie ~10 мин, ~€12.",time:"9:00",lat:45.7607,lng:4.8597,gmaps:"https://maps.google.com/maps?q=45.7607,4.8597"},
+    {name:"Domaine de la Madone — Fleurie",desc:"Семейное хозяйство 6-го поколения. Открыты каждый день 10:30–19:00. Есть Auberge — ресторан прямо на домене с видом на виноградники. Бронировать: +33 4 74 69 81 51",time:"10:30–14:30",lat:46.1978,lng:4.7041,tag:"w",gmaps:"https://maps.google.com/maps?q=Domaine+de+la+Madone+Fleurie+Beaujolais"},
+    {name:"Деревня Oingt",desc:"Такси из Fleurie ~20 мин. Средневековая деревня из золотого камня — одна из красивейших во Франции. Башня Tour du Garon с панорамой.",time:"15:00–16:30",lat:45.9247,lng:4.5947,gmaps:"https://maps.google.com/maps?q=45.9247,4.5947"},
+    {name:"🛍️ Cave locale à Oingt",desc:"Местный погребок в деревне — взять пару бутылок Fleurie или Beaujolais-Villages с собой. Никакой структуры, просто выбираете что нравится.",time:"16:30–17:00",lat:45.9250,lng:4.5955,tag:"w",gmaps:"https://maps.google.com/maps?q=45.9247,4.5947"},
+    {name:"Возвращение в Лион",desc:"Такси до Belleville-sur-Saône (~25 мин, ~€25), поезд Lyon ~35 мин. В Лионе к 19–19:30.",time:"17:30",lat:46.1139,lng:4.7501,gmaps:"https://maps.google.com/maps?q=46.1139,4.7501"}
+  ]},
+  {key:"mon",color:"#E84040",date:"Пн, 6 апреля",title:"Утро — отъезд",stops:[
+    {name:"Institut Lumière",desc:"Братья Люмьер изобрели кино в Лионе. Их особняк — атмосферный музей. Открывается в 10:00.",time:"10:00–12:00",lat:45.7480,lng:4.8535,gmaps:"https://maps.google.com/maps?q=45.7480,4.8535"},
+    {name:"Parc de la Tête d'Or",desc:"Один из лучших городских парков Франции: озеро, ботанический сад, розарий. Если останется время.",time:"12:00–13:30",lat:45.7762,lng:4.8536,gmaps:"https://maps.google.com/maps?q=45.7762,4.8536"}
+  ]}
+];
+
+function mapsLink(url){
+  return `<a class="pop-maps" href="${url}" target="_blank">📍 Открыть в Google Maps</a>`;
+}
+function tagHTML(t){
+  if(!t)return'';
+  if(t==='b')return'<span class="tag tag-b">✓ Забронировано</span>';
+  if(t==='w')return'<span class="tag tag-w">🍷 Вино</span>';
+  if(t==='s')return'<span class="tag tag-s">🛍️ Шопинг</span>';
+  return'';
+}
+function popBadge(t){
+  if(!t)return'';
+  if(t==='b')return`<div><span class="pop-badge" style="background:#e8f5e9;color:#2e7d32">✓ Забронировано</span></div>`;
+  if(t==='w')return`<div><span class="pop-badge" style="background:#f3e5f5;color:#6a1b9a">🍷 Вино</span></div>`;
+  if(t==='s')return`<div><span class="pop-badge" style="background:#fff8e1;color:#e65100">🛍️ Шопинг</span></div>`;
+  return'';
+}
+
+function buildSidebar(containerId){
+  const wrap=document.getElementById(containerId);
+  if(!wrap)return;
+  DAYS.forEach((day,di)=>{
+    const block=document.createElement('div');
+    block.className='day-block';
+    const bid=containerId+'-'+day.key;
+    block.innerHTML=`
+      <div class="day-hdr" onclick="toggleDay('${bid}')">
+        <div class="day-dot" style="background:${day.color}"></div>
+        <div><div class="day-name">${day.date}</div><div class="day-sub">${day.title}</div></div>
+        <div class="day-chev ${di===0?'open':''}" id="chev-${bid}">&#9654;</div>
+      </div>
+      <div class="day-body ${di===0?'open':''}" id="db-${bid}">
+        ${day.stops.map((s,si)=>`
+          <div class="stop" onclick="flyTo(${s.lat},${s.lng},'${day.key}',${si})">
+            <div class="stop-badge" style="background:${day.color}">${si+1}</div>
+            <div>
+              <div class="stop-name">${s.name}${tagHTML(s.tag)}</div>
+              <div class="stop-desc">${s.desc}</div>
+              <div class="stop-time">${s.time}</div>
+              <a class="maps-btn" href="${s.gmaps}" target="_blank">📍 Google Maps</a>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    wrap.appendChild(block);
+  });
+}
+
+function toggleDay(id){
+  document.getElementById('db-'+id)?.classList.toggle('open');
+  const c=document.getElementById('chev-'+id);
+  if(c)c.classList.toggle('open');
+}
+
+buildSidebar('days-wrap');
+buildSidebar('mobile-days-wrap');
+
+// Legend
+const legWrap=document.getElementById('leg-rows');
+DAYS.forEach(d=>{
+  const r=document.createElement('div');
+  r.className='leg-row';
+  r.innerHTML=`<div class="leg-dot" style="background:${d.color}"></div>${d.date} — ${d.title}`;
+  legWrap.appendChild(r);
+});
+
+// ── MAP ──
+const map=L.map('map',{zoomControl:true}).setView([45.762,4.835],13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CartoDB',maxZoom:19
+}).addTo(map);
+
+function mkIcon(color,label,size){
+  size=size||28;
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 7px rgba(0,0,0,.3);color:#fff;font-size:${size<30?11:13}px;font-weight:bold;display:flex;align-items:center;justify-content:center;">${label}</div>`,
+    iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2-2]
+  });
+}
+function hotelIcon(){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:32px;height:32px;border-radius:8px;background:#c8a96e;border:2.5px solid #fff;box-shadow:0 2px 9px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🏨</div>`,
+    iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]
+  });
+}
+
+const hotelMarker=L.marker([HOTEL.lat,HOTEL.lng],{icon:hotelIcon()}).addTo(map)
+  .bindPopup(`<div style="min-width:180px"><div class="pop-day" style="color:#c8a96e">ОТЕЛЬ</div><div class="pop-name">${HOTEL.name}</div><div class="pop-desc">${HOTEL.note}</div><br>${mapsLink('https://maps.google.com/?q=OKKO+Hotels+Lyon+Centre')}</div>`,{maxWidth:240});
+
+const markersByDay={};
+const allMarkers=[hotelMarker];
+
+DAYS.forEach(day=>{
+  markersByDay[day.key]=[];
+  day.stops.forEach((s,si)=>{
+    const m=L.marker([s.lat,s.lng],{icon:mkIcon(day.color,si+1)}).addTo(map)
+      .bindPopup(`<div style="min-width:180px">
+        <div class="pop-day" style="color:${day.color}">${day.date}</div>
+        <div class="pop-name">${s.name}</div>
+        <div class="pop-desc">${s.desc}</div>
+        <div class="pop-time">${s.time}</div>
+        ${popBadge(s.tag)}
+        ${mapsLink(s.gmaps)}
+      </div>`,{maxWidth:250});
+    markersByDay[day.key].push(m);
+    allMarkers.push(m);
+  });
+  const ll=day.stops.map(s=>[s.lat,s.lng]);
+  L.polyline(ll,{color:day.color,weight:2,opacity:.35,dashArray:'5,6'}).addTo(map);
+});
+
+function flyTo(lat,lng,key,idx){
+  map.flyTo([lat,lng],15,{duration:.8});
+  markersByDay[key][idx].openPopup();
+  if(window.innerWidth<=700)showTab('map');
+}
+function flyToHotel(){map.flyTo([HOTEL.lat,HOTEL.lng],16,{duration:.8});hotelMarker.openPopup();}
+function flyToHotelMobile(){flyToHotel();showTab('map');}
+
+map.fitBounds(L.featureGroup(allMarkers).getBounds().pad(.15));
+
+// ── MOBILE TABS ──
+function showTab(tab){
+  const ms=document.getElementById('mobile-sidebar');
+  const tm=document.getElementById('tab-map');
+  const tl=document.getElementById('tab-list');
+  if(tab==='map'){
+    ms.style.display='none';
+    tm.classList.add('active');tl.classList.remove('active');
+    map.invalidateSize();
+  }else{
+    ms.style.display='block';
+    tl.classList.add('active');tm.classList.remove('active');
+  }
+}
+</script>
+</body>
+</html>
